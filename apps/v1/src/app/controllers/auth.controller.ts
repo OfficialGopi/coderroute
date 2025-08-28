@@ -1,7 +1,10 @@
 import { db } from "../../db";
 import { cookieOptions, tokenFieldNames } from "../constants/cookie.constant";
 import { User } from "../models/client";
-import { generateTokensAndSaveToDB } from "../services/model.service";
+import {
+  decodeTokenAndExtractUser,
+  generateTokensAndSaveToDB,
+} from "../services/model.service";
 import { AsyncHandler } from "../utils/async-handler.util";
 import { ApiError, ApiResponse } from "../utils/response.util";
 
@@ -58,6 +61,10 @@ const loginOrSignup = AsyncHandler(async (req, res) => {
 
   const tokens = await generateTokensAndSaveToDB(user);
 
+  if (!tokens) {
+    throw new ApiError(500, "Failed to generate tokens");
+  }
+
   res.cookie(tokenFieldNames.accessToken, tokens.accessToken, cookieOptions);
   res.cookie(tokenFieldNames.refreshToken, tokens.refreshToken, cookieOptions);
 
@@ -70,7 +77,7 @@ const loginOrSignup = AsyncHandler(async (req, res) => {
   ).send(res);
 });
 
-export const logout = AsyncHandler(async (req, res) => {
+const logout = AsyncHandler(async (req, res) => {
   const user = req.user as User;
 
   res.clearCookie(tokenFieldNames.accessToken, cookieOptions);
@@ -91,7 +98,7 @@ export const logout = AsyncHandler(async (req, res) => {
   new ApiResponse(200, undefined, "Logout successful");
 });
 
-export const getMe = AsyncHandler(async (req, res) => {
+const getMe = AsyncHandler(async (req, res) => {
   const user = req.user;
   if (!user) {
     throw new ApiError(401, "User not found");
@@ -101,4 +108,30 @@ export const getMe = AsyncHandler(async (req, res) => {
     user,
   }).send(res);
 });
-export { loginOrSignup };
+
+const refreshAccessToken = AsyncHandler(async (req, res) => {
+  const refreshToken = req.cookies[tokenFieldNames.refreshToken];
+  if (!refreshToken) {
+    throw new ApiError(401, "Refresh token not found");
+  }
+
+  const decodedUser = await decodeTokenAndExtractUser(refreshToken, "refresh");
+
+  if (!decodedUser) {
+    throw new ApiError(401, "Invalid refresh token");
+  }
+
+  const tokens = await generateTokensAndSaveToDB(decodedUser);
+  if (!tokens) {
+    throw new ApiError(500, "Failed to generate tokens");
+  }
+
+  res.cookie(tokenFieldNames.accessToken, tokens.accessToken, cookieOptions);
+  res.cookie(tokenFieldNames.refreshToken, tokens.refreshToken, cookieOptions);
+
+  return new ApiResponse(200, {
+    user: tokens.user,
+  }).send(res);
+});
+
+export { loginOrSignup, logout, getMe, refreshAccessToken };

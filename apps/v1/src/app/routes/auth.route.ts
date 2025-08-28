@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { passport } from "../libs/passport.lib";
 import { env } from "../../env";
-import { getMe, loginOrSignup, logout } from "../controllers/auth.controller";
+import {
+  getMe,
+  loginOrSignup,
+  logout,
+  refreshAccessToken,
+} from "../controllers/auth.controller";
 import { authenticateUser } from "../middlewares/auth.middleware";
 
 const router = Router();
@@ -23,7 +28,10 @@ router.get(
   loginOrSignup
 );
 
-router.get("/logout", authenticateUser, logout);
 router.get("/me", authenticateUser, getMe);
+
+router.put("/refresh-access-token", refreshAccessToken);
+
+router.delete("/logout", authenticateUser, logout);
 
 export { router as authRouter };

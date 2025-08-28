@@ -9,48 +9,62 @@ const sanitizeUser = (user: Partial<User>) => {
 };
 
 const generateTokensAndSaveToDB = async (user: User) => {
-  const accessToken = jwt.sign(
-    {
-      id: user.id,
-    },
-    env.ACCESS_TOKEN_SECRET,
-    {
-      expiresIn: env.ACCESS_TOKEN_EXPIRY,
-    } as jwt.SignOptions
-  );
+  try {
+    const accessToken = jwt.sign(
+      {
+        id: user.id,
+      },
+      env.ACCESS_TOKEN_SECRET,
+      {
+        expiresIn: env.ACCESS_TOKEN_EXPIRY,
+      } as jwt.SignOptions
+    );
 
-  const refreshToken = jwt.sign(
-    {
-      id: user.id,
-    },
-    env.REFRESH_TOKEN_SECRET,
-    {
-      expiresIn: env.REFRESH_TOKEN_EXPIRY,
-    } as jwt.SignOptions
-  );
+    const refreshToken = jwt.sign(
+      {
+        id: user.id,
+      },
+      env.REFRESH_TOKEN_SECRET,
+      {
+        expiresIn: env.REFRESH_TOKEN_EXPIRY,
+      } as jwt.SignOptions
+    );
 
-  const updatedUser = await db.user.update({
-    where: {
-      id: user.id,
-    },
-    data: {
+    const updatedUser = await db.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        refreshToken,
+      },
+    });
+
+    return {
+      accessToken,
       refreshToken,
-    },
-  });
-
-  return {
-    accessToken,
-    refreshToken,
-    user: sanitizeUser(updatedUser),
-  };
+      user: sanitizeUser(updatedUser),
+    };
+  } catch (error) {
+    return null;
+  }
 };
 
-const decodeTokenAndExtractUser = async (token: string) => {
-  const decodedToken = jwt.verify(token, env.ACCESS_TOKEN_SECRET) as {
+const decodeTokenAndExtractUser = async (
+  token: string,
+  type: "access" | "refresh" = "access"
+) => {
+  const secret =
+    type === "access" ? env.ACCESS_TOKEN_SECRET : env.REFRESH_TOKEN_SECRET;
+
+  const decodedToken = jwt.verify(token, secret) as {
     id?: string;
   } & jwt.JwtPayload;
 
   if (!decodedToken || !decodedToken.id) {
+    return null;
+  }
+
+  if (decodedToken.exp && decodedToken.exp < Date.now() / 1000) {
     return null;
   }
 
