@@ -45,4 +45,26 @@ const generateTokensAndSaveToDB = async (user: User) => {
   };
 };
 
-export { sanitizeUser, generateTokensAndSaveToDB };
+const decodeTokenAndExtractUser = async (token: string) => {
+  const decodedToken = jwt.verify(token, env.ACCESS_TOKEN_SECRET) as {
+    id?: string;
+  } & jwt.JwtPayload;
+
+  if (!decodedToken || !decodedToken.id) {
+    return null;
+  }
+
+  const user = await db.user.findUnique({
+    where: {
+      id: decodedToken.id,
+    },
+  });
+
+  if (!user) {
+    return null;
+  }
+
+  return user as User;
+};
+
+export { sanitizeUser, generateTokensAndSaveToDB, decodeTokenAndExtractUser };

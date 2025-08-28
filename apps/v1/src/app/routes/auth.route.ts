@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { passport } from "../libs/passport.lib";
 import { env } from "../../env";
-import { loginOrSignup } from "../controllers/auth.controller";
+import { getMe, loginOrSignup, logout } from "../controllers/auth.controller";
+import { authenticateUser } from "../middlewares/auth.middleware";
 
 const router = Router();
 
@@ -21,5 +22,8 @@ router.get(
   }),
   loginOrSignup
 );
+
+router.get("/logout", authenticateUser, logout);
+router.get("/me", authenticateUser, getMe);
 
 export { router as authRouter };

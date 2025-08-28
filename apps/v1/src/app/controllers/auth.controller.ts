@@ -1,5 +1,5 @@
 import { db } from "../../db";
-import { tokenFieldNames } from "../constants/cookie.constant";
+import { cookieOptions, tokenFieldNames } from "../constants/cookie.constant";
 import { User } from "../models/client";
 import { generateTokensAndSaveToDB } from "../services/model.service";
 import { AsyncHandler } from "../utils/async-handler.util";
@@ -58,8 +58,8 @@ const loginOrSignup = AsyncHandler(async (req, res) => {
 
   const tokens = await generateTokensAndSaveToDB(user);
 
-  res.cookie(tokenFieldNames.accessToken, tokens.accessToken);
-  res.cookie(tokenFieldNames.refreshToken, tokens.refreshToken);
+  res.cookie(tokenFieldNames.accessToken, tokens.accessToken, cookieOptions);
+  res.cookie(tokenFieldNames.refreshToken, tokens.refreshToken, cookieOptions);
 
   return new ApiResponse(
     200,
@@ -70,4 +70,35 @@ const loginOrSignup = AsyncHandler(async (req, res) => {
   ).send(res);
 });
 
+export const logout = AsyncHandler(async (req, res) => {
+  const user = req.user as User;
+
+  res.clearCookie(tokenFieldNames.accessToken, cookieOptions);
+  res.clearCookie(tokenFieldNames.refreshToken, cookieOptions);
+  if (!user) {
+    new ApiResponse(200, undefined, "Logout successful");
+  }
+
+  await db.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      refreshToken: null,
+    },
+  });
+
+  new ApiResponse(200, undefined, "Logout successful");
+});
+
+export const getMe = AsyncHandler(async (req, res) => {
+  const user = req.user;
+  if (!user) {
+    throw new ApiError(401, "User not found");
+  }
+
+  return new ApiResponse(200, {
+    user,
+  }).send(res);
+});
 export { loginOrSignup };
